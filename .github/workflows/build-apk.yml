@@ -15,7 +15,8 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -27,38 +28,46 @@ jobs:
         python -m pip install --upgrade pip
         pip install buildozer cython kivy pyjnius telebot
 
-    - name: Install system packages
+    - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential gcc g++ zlib1g-dev libncurses5-dev libncursesw5-dev libffi-dev libssl-dev openjdk-17-jdk unzip wget
+        sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk \
+          zlib1g-dev libncurses5-dev libncursesw5-dev libffi-dev libssl-dev \
+          libsqlite3-dev wget
 
-    - name: Install Android SDK
+    - name: Install Android SDK and Build Tools
       run: |
-        sudo mkdir -p /opt/android-sdk
-        sudo wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline-tools.zip
-        sudo unzip /tmp/cmdline-tools.zip -d /opt/android-sdk
-        sudo mv /opt/android-sdk/cmdline-tools /opt/android-sdk/cmdline-tools-temp
-        sudo mkdir -p /opt/android-sdk/cmdline-tools/latest
-        sudo mv /opt/android-sdk/cmdline-tools-temp/* /opt/android-sdk/cmdline-tools/latest
-        yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk \
-          "platforms;android-31" "platform-tools" "build-tools;33.0.2"
+        mkdir -p $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
+        cd $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
+        unzip tools.zip
+        mv cmdline-tools latest
+        yes | $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager \
+          --sdk_root=$HOME/.buildozer/android/platform/android-sdk \
+          "platform-tools" "platforms;android-31" "build-tools;33.0.2"
 
     - name: Install Android NDK
       run: |
-        sudo mkdir -p /opt/android-ndk
-        sudo wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O /tmp/ndk.zip
-        sudo unzip /tmp/ndk.zip -d /opt/android-ndk
+        mkdir -p $HOME/.buildozer/android/platform/android-ndk
+        cd $HOME/.buildozer/android/platform/android-ndk
+        wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
+        unzip ndk.zip
+        mv android-ndk-r25b ndk
 
-    - name: Generate main.py with Bot Token and Admin Chat ID
+    - name: Generate main.py
       run: |
+        if [ ! -f client.py ]; then
+          echo "❌ File client.py not found"
+          exit 1
+        fi
         sed -e "s/YOUR_BOT_TOKEN/${{ github.event.inputs.bot_token }}/g" \
             -e "s/YOUR_ADMIN_CHAT_ID/${{ github.event.inputs.admin_chat_id }}/g" \
             client.py > main.py
 
     - name: Build APK
       run: |
-        export ANDROIDSDK=/opt/android-sdk
-        export ANDROIDNDK=/opt/android-ndk/android-ndk-r25b
+        export ANDROIDSDK=$HOME/.buildozer/android/platform/android-sdk
+        export ANDROIDNDK=$HOME/.buildozer/android/platform/android-ndk/ndk
         buildozer -v android debug
 
     - name: List APK files
