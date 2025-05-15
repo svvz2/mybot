@@ -36,7 +36,10 @@ jobs:
         sudo mkdir -p /opt/android-sdk
         sudo wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline-tools.zip
         sudo unzip /tmp/cmdline-tools.zip -d /opt/android-sdk
-        sudo mv /opt/android-sdk/cmdline-tools /opt/android-sdk/cmdline-tools/latest
+        sudo mv /opt/android-sdk/cmdline-tools /opt/android-sdk/cmdline-tools_temp
+        sudo mkdir -p /opt/android-sdk/cmdline-tools/latest
+        sudo mv /opt/android-sdk/cmdline-tools_temp/* /opt/android-sdk/cmdline-tools/latest/
+        sudo rm -rf /opt/android-sdk/cmdline-tools_temp
         sudo yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk \
           "platforms;android-31" "platform-tools" "build-tools;33.0.2"
 
