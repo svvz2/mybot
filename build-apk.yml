@@ -1,0 +1,66 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      bot_token:
+        description: 'Telegram Bot Token'
+        required: true
+      admin_chat_id:
+        description: 'Admin Chat ID'
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.8'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install buildozer cython kivy pyjnius telebot
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential gcc g++ zlib1g-dev libncurses5-dev libncursesw5-dev libffi-dev libssl-dev openjdk-17-jdk
+
+    - name: Install Android SDK
+      run: |
+        sudo mkdir -p /opt/android-sdk
+        sudo wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O /tmp/cmdline-tools.zip
+        sudo unzip /tmp/cmdline-tools.zip -d /opt/android-sdk
+        sudo mv /opt/android-sdk/cmdline-tools /opt/android-sdk/cmdline-tools/latest
+        sudo yes | /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=/opt/android-sdk \
+          "platforms;android-31" "platform-tools" "build-tools;33.0.2"
+
+    - name: Install Android NDK
+      run: |
+        sudo mkdir -p /opt/android-ndk
+        sudo wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O /tmp/ndk.zip
+        sudo unzip /tmp/ndk.zip -d /opt/android-ndk
+        sudo mv /opt/android-ndk/android-ndk-r25b /opt/android-ndk
+
+    - name: Generate main.py with Bot Token and Admin Chat ID
+      run: |
+        sed -e "s/YOUR_BOT_TOKEN/${{ github.event.inputs.bot_token }}/g" \
+            -e "s/YOUR_ADMIN_CHAT_ID/${{ github.event.inputs.admin_chat_id }}/g" \
+            client.py > main.py
+
+    - name: Build APK
+      run: |
+        export ANDROIDSDK=/opt/android-sdk
+        export ANDROIDNDK=/opt/android-ndk
+        buildozer -v android debug
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v3
+      with:
+        name: mybot-apk
+        path: bin/*.apk
