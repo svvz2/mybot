@@ -63,7 +63,7 @@ jobs:
       run: ls -l bin/
 
     - name: Upload APK
-      uses: actions/upload-artifact@v3.1.2
+      uses: actions/upload-artifact@v3
       with:
         name: mybot-apk
         path: bin/*.apk
