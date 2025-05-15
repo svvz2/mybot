@@ -31,47 +31,32 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential git zip unzip openjdk-17-jdk \
-          zlib1g-dev libncurses5-dev libncursesw5-dev libffi-dev libssl-dev \
-          libsqlite3-dev wget
+        sudo apt-get install -y build-essential gcc g++ zlib1g-dev libncurses5-dev \
+          libncursesw5-dev libffi-dev libssl-dev openjdk-17-jdk unzip wget libsqlite3-dev
 
-    - name: Install Android SDK and Build Tools
+    - name: Install Android SDK & NDK
       run: |
-        mkdir -p $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
-        cd $HOME/.buildozer/android/platform/android-sdk/cmdline-tools
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O tools.zip
-        unzip tools.zip
-        mv cmdline-tools latest
-        yes | $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager \
-          --sdk_root=$HOME/.buildozer/android/platform/android-sdk \
-          "platform-tools" "platforms;android-31" "build-tools;33.0.2"
+        mkdir -p $HOME/.buildozer/android/platform
+        cd $HOME/.buildozer/android/platform
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk-tools.zip
+        unzip -q sdk-tools.zip -d android-sdk
+        mkdir -p android-sdk/cmdline-tools/latest
+        mv android-sdk/cmdline-tools/* android-sdk/cmdline-tools/latest/
+        yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=android-sdk \
+          "platforms;android-31" "platform-tools" "build-tools;33.0.2" "ndk;25.1.8937393"
 
-    - name: Install Android NDK
+    - name: Generate main.py from client.py
       run: |
-        mkdir -p $HOME/.buildozer/android/platform/android-ndk
-        cd $HOME/.buildozer/android/platform/android-ndk
-        wget https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O ndk.zip
-        unzip ndk.zip
-        mv android-ndk-r25b ndk
-
-    - name: Generate main.py
-      run: |
-        if [ ! -f client.py ]; then
-          echo "❌ File client.py not found"
-          exit 1
-        fi
         sed -e "s/YOUR_BOT_TOKEN/${{ github.event.inputs.bot_token }}/g" \
             -e "s/YOUR_ADMIN_CHAT_ID/${{ github.event.inputs.admin_chat_id }}/g" \
             client.py > main.py
 
     - name: Build APK
       run: |
-        export ANDROIDSDK=$HOME/.buildozer/android/platform/android-sdk
-        export ANDROIDNDK=$HOME/.buildozer/android/platform/android-ndk/ndk
         buildozer -v android debug
 
-    - name: List APK files
-      run: ls -l bin/
+    - name: List APKs
+      run: ls -lh bin/
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
