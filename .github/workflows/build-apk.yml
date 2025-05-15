@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-    - name: Checkout repository
+    - name: Checkout code
       uses: actions/checkout@v3
 
     - name: Set up Python
@@ -31,21 +31,23 @@ jobs:
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential gcc g++ zlib1g-dev libncurses5-dev \
-          libncursesw5-dev libffi-dev libssl-dev openjdk-17-jdk unzip wget libsqlite3-dev
+        sudo apt-get install -y \
+          build-essential gcc g++ zlib1g-dev libncurses5-dev libncursesw5-dev \
+          libffi-dev libssl-dev openjdk-17-jdk unzip wget
 
     - name: Install Android SDK & NDK
       run: |
         mkdir -p $HOME/.buildozer/android/platform
         cd $HOME/.buildozer/android/platform
         wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk-tools.zip
-        unzip -q sdk-tools.zip -d android-sdk
-        mkdir -p android-sdk/cmdline-tools/latest
-        mv android-sdk/cmdline-tools/* android-sdk/cmdline-tools/latest/
+        mkdir -p android-sdk/cmdline-tools
+        unzip -q sdk-tools.zip -d android-sdk/cmdline-tools/tmp
+        mv android-sdk/cmdline-tools/tmp/cmdline-tools android-sdk/cmdline-tools/latest
+        rm -rf android-sdk/cmdline-tools/tmp
         yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=android-sdk \
           "platforms;android-31" "platform-tools" "build-tools;33.0.2" "ndk;25.1.8937393"
 
-    - name: Generate main.py from client.py
+    - name: Generate main.py with Bot Token and Admin Chat ID
       run: |
         sed -e "s/YOUR_BOT_TOKEN/${{ github.event.inputs.bot_token }}/g" \
             -e "s/YOUR_ADMIN_CHAT_ID/${{ github.event.inputs.admin_chat_id }}/g" \
@@ -53,10 +55,11 @@ jobs:
 
     - name: Build APK
       run: |
+        export PATH=$PATH:$HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin
         buildozer -v android debug
 
-    - name: List APKs
-      run: ls -lh bin/
+    - name: List APK files
+      run: ls -l bin/
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
