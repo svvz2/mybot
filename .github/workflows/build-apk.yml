@@ -10,6 +10,10 @@ on:
         description: 'Admin Chat ID'
         required: true
 
+permissions:
+  contents: write  # لرفع الـ artifacts
+  actions: write  # للتفاعل مع Actions
+
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -21,28 +25,48 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.8'
+        python-version: '3.9'  # إصدار أحدث للتوافق مع Buildozer
 
-    - name: Install dependencies
+    - name: Install system dependencies
       run: |
         sudo apt update
-        sudo apt install -y unzip openjdk-17-jdk wget libffi-dev libssl-dev zlib1g-dev \
-          libncurses5-dev libncursesw5-dev libbz2-dev libreadline-dev libsqlite3-dev
-        python -m pip install --upgrade pip
-        pip install buildozer cython
+        sudo apt install -y \
+          unzip openjdk-17-jdk wget libffi-dev libssl-dev zlib1g-dev \
+          libncurses5-dev libncursesw5-dev libbz2-dev libreadline-dev \
+          libsqlite3-dev lib32stdc++6 lib32z1 autoconf automake libtool
 
-    - name: Install Android SDK & NDK
+    - name: Set up Java environment
       run: |
-        export ANDROID_DIR=/home/runner/.buildozer/android/platform
-        mkdir -p $ANDROID_DIR
-        cd $ANDROID_DIR
-        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O sdk.zip
-        mkdir -p android-sdk/cmdline-tools
-        unzip -q sdk.zip -d android-sdk/cmdline-tools/tmp
-        mv android-sdk/cmdline-tools/tmp/cmdline-tools android-sdk/cmdline-tools/latest
-        rm -rf android-sdk/cmdline-tools/tmp
-        yes | android-sdk/cmdline-tools/latest/bin/sdkmanager --sdk_root=android-sdk \
-          "platforms;android-31" "platform-tools" "build-tools;33.0.2" "ndk;25.1.8937393"
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        java -version
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install buildozer cython kivy pyjnius telebot
+
+    - name: Install Android SDK
+      run: |
+        export ANDROID_DIR=$HOME/.buildozer/android/platform
+        mkdir -p $ANDROID_DIR/android-sdk/cmdline-tools
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip
+        unzip -q /tmp/cmdline-tools.zip -d $ANDROID_DIR/android-sdk/cmdline-tools
+        mv $ANDROID_DIR/android-sdk/cmdline-tools/cmdline-tools $ANDROID_DIR/android-sdk/cmdline-tools/latest
+        export ANDROID_HOME=$ANDROID_DIR/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+        yes | sdkmanager --sdk_root=$ANDROID_HOME \
+          "platforms;android-31" "platform-tools" "build-tools;33.0.2"
+
+    - name: Install Android NDK
+      run: |
+        export ANDROID_DIR=$HOME/.buildozer/android/platform
+        mkdir -p $ANDROID_DIR/android-ndk
+        wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -O /tmp/ndk.zip
+        unzip -q /tmp/ndk.zip -d $ANDROID_DIR/android-ndk
+        mv $ANDROID_DIR/android-ndk/android-ndk-r25b $ANDROID_DIR/android-ndk/ndk
+        export ANDROID_NDK_HOME=$ANDROID_DIR/android-ndk/ndk
+        export PATH=$PATH:$ANDROID_NDK_HOME
 
     - name: Replace bot token and chat ID
       run: |
@@ -52,11 +76,14 @@ jobs:
 
     - name: Build APK
       run: |
-        export PATH=$PATH:/home/runner/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin
-        buildozer android debug
+        export ANDROIDSDK=$HOME/.buildozer/android/platform/android-sdk
+        export ANDROIDNDK=$HOME/.buildozer/android/platform/android-ndk/ndk
+        export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+        buildozer -v android debug
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
         name: mybot-apk
-        path: bin/*.apk
+        path: ./bin/*-debug.apk
+        retention-days: 7
