@@ -8,6 +8,9 @@ package.name = myapp
 
 # (str) Package domain (needed for android/ios packaging)
 package.domain = org.test
+# مسارات الـ SDK و NDK
+android.sdk_path = $HOME/.buildozer/android/platform/android-sdk
+android.ndk_path = $HOME/.buildozer/android/platform/android-ndk/ndk
 
 # (str) Source code where the main.py live
 source.dir = .
